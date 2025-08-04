@@ -3,7 +3,7 @@ description: "Genera una release con descripción automática basada en los camb
 inputs:
   github_token:
     required: true
-    description: "GitHub token (usar ${{ secrets.GITHUB_TOKEN }})"
+    description: "GitHub token para acceso a la API"
   huggingface_token:
     required: false
     description: "Token de Hugging Face para IA (opcional, genera automáticamente sin IA si no se proporciona)"
