@@ -31,7 +31,7 @@ jobs:
       - name: Create Release
         uses: ./
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GH_TOKEN }}
 ```
 
 ### Configuración Avanzada
@@ -58,7 +58,7 @@ jobs:
         id: release
         uses: ./
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GH_TOKEN }}
 
       - name: Print Release Info
         run: |
@@ -70,7 +70,7 @@ jobs:
 
 | Input          | Descripción                                         | Requerido | Default |
 | -------------- | --------------------------------------------------- | --------- | ------- |
-| `github_token` | Token de GitHub con permisos de Copilot y escritura | ✅        | N/A     |
+| `GH_TOKEN` | Token de GitHub con permisos de Copilot y escritura | ✅        | N/A     |
 
 ## Outputs
 
@@ -81,11 +81,24 @@ jobs:
 
 ## Permisos Requeridos
 
-El token de GitHub debe tener los siguientes permisos:
+El `GH_TOKEN` debe tener los siguientes permisos configurados en el workflow:
 
-- `contents: write` - Para crear releases y tags
-- `pull-requests: read` - Para leer información del PR
-- Acceso a GitHub Copilot
+### Configuración Necesaria
+
+```yaml
+permissions:
+  repo: write
+  workflow:
+  copilot:
+```
+
+### Detalle de Permisos
+
+| Permiso         | Nivel   | Para qué se usa                  | API específica                                            |
+| --------------- | ------- | -------------------------------- | --------------------------------------------------------- |
+| `contents`      | `write` | Crear releases y tags            | `repos.createRelease()`                                   |
+| `pull-requests` | `read`  | Leer PRs, commits y archivos     | `pulls.get()`, `pulls.listCommits()`, `pulls.listFiles()` |
+| `metadata`      | `read`  | Info básica del repo (implícito) | `context.repo.owner`, `context.repo.repo`                 |
 
 ## Cómo Funciona
 
@@ -150,7 +163,7 @@ npm install
 
 ```bash
 # Simular el environment de GitHub Actions
-export INPUT_GITHUB_TOKEN="your_token_here"
+export INPUT_GH_TOKEN="your_token_here"
 node index.js
 ```
 
