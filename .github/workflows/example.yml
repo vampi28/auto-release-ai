@@ -64,7 +64,7 @@ jobs:
 
       - name: Create Automatic Release
         id: auto_release
-        uses: ./
+        uses: vampi28/auto-release@v0.1.3
         with:
           github_token: ${{ secrets.GH_TOKEN }}
         #   huggingface_token: ${{ secrets.HUGGINGFACE_TOKEN }}
