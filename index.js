@@ -1,6 +1,227 @@
 const core = require("@actions/core");
 const github = require("@actions/github");
 
+// Función para generar release notes automáticas
+function generateReleaseNotes(pullRequest, commits, files) {
+  const features = [];
+  const fixes = [];
+  const chores = [];
+  const others = [];
+
+  // Analizar commits por tipo
+  commits.forEach((commit) => {
+    const message = commit.commit.message.toLowerCase();
+    const fullMessage = commit.commit.message;
+
+    if (message.startsWith("feat:") || message.startsWith("feature:")) {
+      features.push(fullMessage.replace(/^(feat:|feature:)\s*/i, ""));
+    } else if (message.startsWith("fix:") || message.startsWith("bug:")) {
+      fixes.push(fullMessage.replace(/^(fix:|bug:)\s*/i, ""));
+    } else if (
+      message.startsWith("chore:") ||
+      message.startsWith("docs:") ||
+      message.startsWith("style:")
+    ) {
+      chores.push(fullMessage.replace(/^(chore:|docs:|style:)\s*/i, ""));
+    } else {
+      others.push(fullMessage);
+    }
+  });
+
+  // Analizar archivos modificados
+  const addedFiles = files
+    .filter((f) => f.status === "added")
+    .map((f) => f.filename);
+  const modifiedFiles = files
+    .filter((f) => f.status === "modified")
+    .map((f) => f.filename);
+  const deletedFiles = files
+    .filter((f) => f.status === "removed")
+    .map((f) => f.filename);
+
+  // Generar release notes
+  let releaseNotes = `# Release Notes\n\n`;
+
+  // Información del PR
+  if (pullRequest.title) {
+    releaseNotes += `## ${pullRequest.title}\n\n`;
+  }
+
+  if (pullRequest.body && pullRequest.body.trim()) {
+    releaseNotes += `${pullRequest.body}\n\n`;
+  }
+
+  // Nuevas características
+  if (features.length > 0) {
+    releaseNotes += `## 🚀 Nuevas Características\n\n`;
+    features.forEach((feature) => {
+      releaseNotes += `- ${feature}\n`;
+    });
+    releaseNotes += `\n`;
+  }
+
+  // Correcciones
+  if (fixes.length > 0) {
+    releaseNotes += `## 🐛 Correcciones\n\n`;
+    fixes.forEach((fix) => {
+      releaseNotes += `- ${fix}\n`;
+    });
+    releaseNotes += `\n`;
+  }
+
+  // Otros cambios
+  if (others.length > 0) {
+    releaseNotes += `## 📝 Otros Cambios\n\n`;
+    others.forEach((change) => {
+      releaseNotes += `- ${change}\n`;
+    });
+    releaseNotes += `\n`;
+  }
+
+  // Tareas de mantenimiento
+  if (chores.length > 0) {
+    releaseNotes += `## 🔧 Mantenimiento\n\n`;
+    chores.forEach((chore) => {
+      releaseNotes += `- ${chore}\n`;
+    });
+    releaseNotes += `\n`;
+  }
+
+  // Archivos modificados
+  if (
+    addedFiles.length > 0 ||
+    modifiedFiles.length > 0 ||
+    deletedFiles.length > 0
+  ) {
+    releaseNotes += `## 📁 Archivos Afectados\n\n`;
+
+    if (addedFiles.length > 0) {
+      releaseNotes += `### ✅ Archivos Agregados\n`;
+      addedFiles.forEach((file) => {
+        releaseNotes += `- \`${file}\`\n`;
+      });
+      releaseNotes += `\n`;
+    }
+
+    if (modifiedFiles.length > 0) {
+      releaseNotes += `### 📝 Archivos Modificados\n`;
+      modifiedFiles.forEach((file) => {
+        releaseNotes += `- \`${file}\`\n`;
+      });
+      releaseNotes += `\n`;
+    }
+
+    if (deletedFiles.length > 0) {
+      releaseNotes += `### ❌ Archivos Eliminados\n`;
+      deletedFiles.forEach((file) => {
+        releaseNotes += `- \`${file}\`\n`;
+      });
+      releaseNotes += `\n`;
+    }
+  }
+
+  // Información adicional
+  releaseNotes += `---\n\n`;
+  releaseNotes += `**Total de commits:** ${commits.length}\n`;
+  releaseNotes += `**Archivos afectados:** ${files.length}\n`;
+
+  if (pullRequest.user) {
+    releaseNotes += `**Autor:** @${pullRequest.user.login}\n`;
+  }
+
+  return releaseNotes;
+}
+
+// Función para generar release notes usando Hugging Face AI
+async function generateReleaseNotesWithAI(prompt, pullRequest, commits, files) {
+  const huggingfaceToken = core.getInput("huggingface_token");
+
+  if (!huggingfaceToken) {
+    console.log(
+      "Token de Hugging Face no proporcionado, usando generación automática sin IA"
+    );
+    return generateReleaseNotes(pullRequest, commits, files);
+  }
+
+  try {
+    console.log("Generando release notes con Hugging Face AI...");
+
+    const response = await fetch(
+      "https://api-inference.huggingface.co/models/microsoft/DialoGPT-large",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${huggingfaceToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          inputs: prompt,
+          parameters: {
+            max_length: 500,
+            temperature: 0.7,
+            do_sample: true,
+          },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Hugging Face API error: ${response.status} ${response.statusText}`
+      );
+    }
+
+    const result = await response.json();
+
+    if (result.error) {
+      throw new Error(`Hugging Face error: ${result.error}`);
+    }
+
+    let aiReleaseNotes =
+      result[0]?.generated_text || result.generated_text || "";
+
+    // Si la respuesta de IA está vacía o es muy corta, usar generación automática
+    if (!aiReleaseNotes || aiReleaseNotes.trim().length < 50) {
+      console.log("Respuesta de IA insuficiente, usando generación automática");
+      return generateReleaseNotes(pullRequest, commits, files);
+    }
+
+    // Limpiar y formatear la respuesta de IA
+    aiReleaseNotes = aiReleaseNotes.replace(prompt, "").trim();
+
+    // Validar que la respuesta no contenga contenido no deseado
+    if (
+      aiReleaseNotes.length > 1500 ||
+      aiReleaseNotes.includes("GitHub Action") ||
+      aiReleaseNotes.includes("README") ||
+      aiReleaseNotes.includes("## Características") ||
+      aiReleaseNotes.includes("npm install")
+    ) {
+      console.log(
+        "Respuesta de IA contiene contenido no deseado, usando generación automática"
+      );
+      return generateReleaseNotes(pullRequest, commits, files);
+    }
+
+    // Formatear las release notes correctamente
+    let formattedNotes = `# Release Notes\n\n${aiReleaseNotes}\n\n`;
+    formattedNotes += `---\n\n**Información técnica:**\n`;
+    formattedNotes += `- Total de commits: ${commits.length}\n`;
+    formattedNotes += `- Archivos afectados: ${files.length}\n`;
+
+    if (pullRequest.user) {
+      formattedNotes += `- Autor: @${pullRequest.user.login}\n`;
+    }
+
+    console.log("Release notes generadas exitosamente con IA");
+    return formattedNotes;
+  } catch (error) {
+    console.error(`Error al usar Hugging Face: ${error.message}`);
+    console.log("Usando generación automática como respaldo");
+    return generateReleaseNotes(pullRequest, commits, files);
+  }
+}
+
 async function run() {
   try {
     const token = core.getInput("github_token");
@@ -53,7 +274,7 @@ async function run() {
       },
     });
 
-    // Preparar información para GitHub Copilot
+    // Preparar prompt para Hugging Face
     const commitMessages = commits
       .map((c) => `- ${c.commit.message}`)
       .join("\n");
@@ -61,54 +282,37 @@ async function run() {
       .map((f) => `- ${f.filename} (${f.status})`)
       .join("\n");
 
-    const prompt = `Basándote en la siguiente información de un Pull Request, genera release notes profesionales en español:
+    // Limpiar y limitar la descripción del PR
+    let cleanDescription = pullRequest.body || "Sin descripción";
 
-TÍTULO DEL PR: ${pullRequest.title}
-DESCRIPCIÓN DEL PR: ${pullRequest.body || "Sin descripción"}
+    // Si la descripción es muy larga o contiene contenido de documentación, usar solo el título
+    if (
+      cleanDescription.length > 500 ||
+      cleanDescription.includes("GitHub Action") ||
+      cleanDescription.includes("## Características") ||
+      cleanDescription.includes("npm install") ||
+      cleanDescription.includes("README")
+    ) {
+      cleanDescription = "Cambios basados en commits y archivos modificados";
+    }
 
-COMMITS:
-${commitMessages}
+    const prompt = `Genera release notes breves en español:
 
-ARCHIVOS MODIFICADOS:
-${filesList}
+Título: ${pullRequest.title}
+Descripción: ${cleanDescription}
 
-DIFF DE CAMBIOS:
-${
-  diff.length > 3000
-    ? diff.substring(0, 3000) + "\n...[diff truncado]..."
-    : diff
-}
+Commits principales:
+${commitMessages.slice(0, 300)} // Limitar commits también
 
-Por favor, genera release notes que incluyan:
-1. Un resumen de los cambios principales
-2. Nuevas características agregadas
-3. Correcciones de bugs
-4. Mejoras de rendimiento (si aplica)
-5. Cambios que podrían afectar a los usuarios
+Responde solo con las release notes, máximo 200 palabras.`;
 
-Formato la respuesta de manera profesional y clara.`;
-
-    // Usar GitHub Copilot Chat API
-    const copilotResponse = await octokit.request(
-      "POST /copilot/chat/completions",
-      {
-        messages: [
-          {
-            role: "system",
-            content:
-              "Eres un asistente especializado en generar release notes profesionales basándote en información de Pull Requests.",
-          },
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        model: "gpt-4o",
-        max_tokens: 1000,
-      }
+    // Usar Hugging Face para generar release notes con IA
+    const releaseNotes = await generateReleaseNotesWithAI(
+      prompt,
+      pullRequest,
+      commits,
+      files
     );
-
-    const releaseNotes = copilotResponse.data.choices[0].message.content;
 
     // Determinar el tag a usar
     const customVersion = core.getInput("version");
