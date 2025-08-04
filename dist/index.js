@@ -32025,17 +32025,32 @@ async function generateReleaseNotesWithAI(prompt, pullRequest, commits, files) {
     // Limpiar y formatear la respuesta de IA
     aiReleaseNotes = aiReleaseNotes.replace(prompt, "").trim();
 
-    // Agregar información técnica al final
-    aiReleaseNotes += `\n\n---\n\n**Información técnica:**\n`;
-    aiReleaseNotes += `- Total de commits: ${commits.length}\n`;
-    aiReleaseNotes += `- Archivos afectados: ${files.length}\n`;
+    // Validar que la respuesta no contenga contenido no deseado
+    if (
+      aiReleaseNotes.length > 1500 ||
+      aiReleaseNotes.includes("GitHub Action") ||
+      aiReleaseNotes.includes("README") ||
+      aiReleaseNotes.includes("## Características") ||
+      aiReleaseNotes.includes("npm install")
+    ) {
+      console.log(
+        "Respuesta de IA contiene contenido no deseado, usando generación automática"
+      );
+      return generateReleaseNotes(pullRequest, commits, files);
+    }
+
+    // Formatear las release notes correctamente
+    let formattedNotes = `# Release Notes\n\n${aiReleaseNotes}\n\n`;
+    formattedNotes += `---\n\n**Información técnica:**\n`;
+    formattedNotes += `- Total de commits: ${commits.length}\n`;
+    formattedNotes += `- Archivos afectados: ${files.length}\n`;
 
     if (pullRequest.user) {
-      aiReleaseNotes += `- Autor: @${pullRequest.user.login}\n`;
+      formattedNotes += `- Autor: @${pullRequest.user.login}\n`;
     }
 
     console.log("Release notes generadas exitosamente con IA");
-    return aiReleaseNotes;
+    return formattedNotes;
   } catch (error) {
     console.error(`Error al usar Hugging Face: ${error.message}`);
     console.log("Usando generación automática como respaldo");
@@ -32103,18 +32118,29 @@ async function run() {
       .map((f) => `- ${f.filename} (${f.status})`)
       .join("\n");
 
-    const prompt = `Genera release notes profesionales en español para este Pull Request:
+    // Limpiar y limitar la descripción del PR
+    let cleanDescription = pullRequest.body || "Sin descripción";
+
+    // Si la descripción es muy larga o contiene contenido de documentación, usar solo el título
+    if (
+      cleanDescription.length > 500 ||
+      cleanDescription.includes("GitHub Action") ||
+      cleanDescription.includes("## Características") ||
+      cleanDescription.includes("npm install") ||
+      cleanDescription.includes("README")
+    ) {
+      cleanDescription = "Cambios basados en commits y archivos modificados";
+    }
+
+    const prompt = `Genera release notes breves en español:
 
 Título: ${pullRequest.title}
-Descripción: ${pullRequest.body || "Sin descripción"}
+Descripción: ${cleanDescription}
 
-Commits:
-${commitMessages}
+Commits principales:
+${commitMessages.slice(0, 300)} // Limitar commits también
 
-Archivos modificados:
-${filesList}
-
-Incluye: resumen de cambios, nuevas características, correcciones y mejoras.`;
+Responde solo con las release notes, máximo 200 palabras.`;
 
     // Usar Hugging Face para generar release notes con IA
     const releaseNotes = await generateReleaseNotesWithAI(
