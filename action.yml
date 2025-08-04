@@ -8,11 +8,11 @@ inputs:
     required: false
     description: "Token de Hugging Face para IA (opcional, genera automáticamente sin IA si no se proporciona)"
   pr_number:
-    required: false
-    description: "Número del Pull Request (se detecta automáticamente si no se proporciona)"
+    required: true
+    description: "Número del Pull Request"
   version:
-    required: false
-    description: "Versión personalizada para la release (se genera automáticamente si no se proporciona)"
+    required: true
+    description: "Versión de la release (ej: v1.2.3, 2.0.0)"
 runs:
   using: "node20"
   main: "dist/index.js"
