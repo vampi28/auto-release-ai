@@ -66,8 +66,8 @@ jobs:
         id: auto_release
         uses: ./
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          huggingface_token: ${{ secrets.HUGGINGFACE_TOKEN }}
+          github_token: ${{ secrets.GH_TOKEN }}
+        #   huggingface_token: ${{ secrets.HUGGINGFACE_TOKEN }}
           pr_number: ${{ steps.pr_setup.outputs.pr_number }}
           version: ${{ github.event.inputs.version || '' }}
 
