@@ -12,71 +12,61 @@ GitHub Action que genera releases automáticas con descripciones inteligentes ut
 
 ## Uso
 
-### Configuración Básica
+Esta action se ejecuta únicamente de forma manual. Debes especificar el número de PR y la versión.
+
+### Configuración del Workflow
 
 ```yaml
 name: Auto Release
+
 on:
-  pull_request:
-    types: [closed]
-    branches: [main]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Número del Pull Request para generar la release"
+        required: true
+        type: string
+      version:
+        description: "Versión de la release (ej: v1.2.3, 2.0.0)"
+        required: true
+        type: string
 
 jobs:
   release:
-    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: read
     steps:
-      - name: Create Release
-        uses: ./
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          huggingface_token: ${{ secrets.HUGGINGFACE_TOKEN }}
-```
-
-### Configuración Avanzada
-
-```yaml
-name: Auto Release
-on:
-  pull_request:
-    types: [closed]
-    branches: [main, develop]
-
-jobs:
-  release:
-    if: github.event.pull_request.merged == true
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: read
-    steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Create Release
-        id: release
         uses: ./
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           huggingface_token: ${{ secrets.HUGGINGFACE_TOKEN }}
-
-      - name: Print Release Info
-        run: |
-          echo "Release URL: ${{ steps.release.outputs.release_url }}"
-          echo "Tag Name: ${{ steps.release.outputs.tag_name }}"
+          pr_number: ${{ github.event.inputs.pr_number }}
+          version: ${{ github.event.inputs.version }}
 ```
+
+### Cómo Ejecutar
+
+1. Ve a la pestaña "Actions" en tu repositorio
+2. Selecciona el workflow "Auto Release"
+3. Haz clic en "Run workflow"
+4. Introduce el número del PR
+5. Introduce la versión deseada (ej: v1.2.3)
+6. Ejecuta el workflow
 
 ## Inputs
 
-| Input               | Descripción                                          | Requerido | Default        |
-| ------------------- | ---------------------------------------------------- | --------- | -------------- |
-| `github_token`      | Token de GitHub (usar `${{ secrets.GITHUB_TOKEN }}`) | ✅        | N/A            |
-| `huggingface_token` | Token de Hugging Face para IA (opcional)             | ❌        | N/A            |
-| `pr_number`         | Número del Pull Request (se detecta automáticamente) | ❌        | Auto-detectado |
-| `version`           | Versión personalizada para la release                | ❌        | Auto-generado  |
+| Input               | Descripción                                          | Requerido | Default |
+| ------------------- | ---------------------------------------------------- | --------- | ------- |
+| `github_token`      | Token de GitHub (usar `${{ secrets.GITHUB_TOKEN }}`) | ✅        | N/A     |
+| `huggingface_token` | Token de Hugging Face para IA (opcional)             | ❌        | N/A     |
+| `pr_number`         | Número del Pull Request                              | ✅        | N/A     |
+| `version`           | Versión de la release (ej: v1.2.3, 2.0.0)            | ✅        | N/A     |
 
 ## Outputs
 
@@ -142,12 +132,6 @@ permissions:
 3. **Creación de Release**: Genera automáticamente:
    - Tag con formato temporal (`v2025.08.04-1430`)
    - Release con las notas generadas por IA
-
-## Formato del Tag
-
-Los tags se generan automáticamente con el formato: `vYYYY.MM.DD-HHMM`
-
-Ejemplo: `v2025.08.04-1430`
 
 ## Ejemplo de Release Notes Generadas
 
