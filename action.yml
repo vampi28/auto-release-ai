@@ -12,4 +12,4 @@ inputs:
     description: "Versión personalizada para la release (opcional, se genera automáticamente si no se proporciona)"
 runs:
   using: "node20"
-  main: "index.js"
+  main: "dist/index.js"
