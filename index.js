@@ -47,8 +47,24 @@ function generateReleaseNotes(pullRequest, commits, files) {
     releaseNotes += `## ${pullRequest.title}\n\n`;
   }
 
+  // Incluir descripción del PR solo si es concisa y relevante
   if (pullRequest.body && pullRequest.body.trim()) {
-    releaseNotes += `${pullRequest.body}\n\n`;
+    const prBody = pullRequest.body.trim();
+
+    // Filtrar descripciones muy largas o que parecen documentación
+    const lines = prBody.split("\n");
+    const isLikelyDocumentation =
+      prBody.length > 1000 || // Muy largo
+      lines.length > 20 || // Muchas líneas
+      prBody.includes("## Installation") ||
+      prBody.includes("## Usage") ||
+      prBody.includes("## Examples") ||
+      prBody.includes("# ") || // Títulos de nivel 1
+      (prBody.includes("```") && lines.length > 10); // Muchos bloques de código
+
+    if (!isLikelyDocumentation) {
+      releaseNotes += `### Descripción\n\n${prBody}\n\n`;
+    }
   }
 
   // Nuevas características
@@ -285,15 +301,26 @@ async function run() {
     // Limpiar y limitar la descripción del PR
     let cleanDescription = pullRequest.body || "Sin descripción";
 
-    // Si la descripción es muy larga o contiene contenido de documentación, usar solo el título
-    if (
-      cleanDescription.length > 500 ||
+    // Filtrar descripciones que parecen documentación o son muy largas
+    const lines = cleanDescription.split("\n");
+    const isLikelyDocumentation =
+      cleanDescription.length > 1000 ||
+      lines.length > 20 ||
       cleanDescription.includes("GitHub Action") ||
+      cleanDescription.includes("## Installation") ||
+      cleanDescription.includes("## Usage") ||
+      cleanDescription.includes("## Examples") ||
       cleanDescription.includes("## Características") ||
       cleanDescription.includes("npm install") ||
-      cleanDescription.includes("README")
-    ) {
+      cleanDescription.includes("README") ||
+      cleanDescription.includes("# ") || // Títulos de nivel 1
+      (cleanDescription.includes("```") && lines.length > 10); // Muchos bloques de código
+
+    if (isLikelyDocumentation) {
       cleanDescription = "Cambios basados en commits y archivos modificados";
+    } else if (cleanDescription.length > 500) {
+      // Si es largo pero no documentación, truncar
+      cleanDescription = cleanDescription.substring(0, 500) + "...";
     }
 
     const prompt = `Genera release notes breves en español:
