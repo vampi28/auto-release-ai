@@ -1,6 +1,137 @@
 const core = require("@actions/core");
 const github = require("@actions/github");
 
+// Función para generar release notes automáticas
+function generateReleaseNotes(pullRequest, commits, files) {
+  const features = [];
+  const fixes = [];
+  const chores = [];
+  const others = [];
+
+  // Analizar commits por tipo
+  commits.forEach((commit) => {
+    const message = commit.commit.message.toLowerCase();
+    const fullMessage = commit.commit.message;
+
+    if (message.startsWith("feat:") || message.startsWith("feature:")) {
+      features.push(fullMessage.replace(/^(feat:|feature:)\s*/i, ""));
+    } else if (message.startsWith("fix:") || message.startsWith("bug:")) {
+      fixes.push(fullMessage.replace(/^(fix:|bug:)\s*/i, ""));
+    } else if (
+      message.startsWith("chore:") ||
+      message.startsWith("docs:") ||
+      message.startsWith("style:")
+    ) {
+      chores.push(fullMessage.replace(/^(chore:|docs:|style:)\s*/i, ""));
+    } else {
+      others.push(fullMessage);
+    }
+  });
+
+  // Analizar archivos modificados
+  const addedFiles = files
+    .filter((f) => f.status === "added")
+    .map((f) => f.filename);
+  const modifiedFiles = files
+    .filter((f) => f.status === "modified")
+    .map((f) => f.filename);
+  const deletedFiles = files
+    .filter((f) => f.status === "removed")
+    .map((f) => f.filename);
+
+  // Generar release notes
+  let releaseNotes = `# Release Notes\n\n`;
+
+  // Información del PR
+  if (pullRequest.title) {
+    releaseNotes += `## ${pullRequest.title}\n\n`;
+  }
+
+  if (pullRequest.body && pullRequest.body.trim()) {
+    releaseNotes += `${pullRequest.body}\n\n`;
+  }
+
+  // Nuevas características
+  if (features.length > 0) {
+    releaseNotes += `## 🚀 Nuevas Características\n\n`;
+    features.forEach((feature) => {
+      releaseNotes += `- ${feature}\n`;
+    });
+    releaseNotes += `\n`;
+  }
+
+  // Correcciones
+  if (fixes.length > 0) {
+    releaseNotes += `## 🐛 Correcciones\n\n`;
+    fixes.forEach((fix) => {
+      releaseNotes += `- ${fix}\n`;
+    });
+    releaseNotes += `\n`;
+  }
+
+  // Otros cambios
+  if (others.length > 0) {
+    releaseNotes += `## 📝 Otros Cambios\n\n`;
+    others.forEach((change) => {
+      releaseNotes += `- ${change}\n`;
+    });
+    releaseNotes += `\n`;
+  }
+
+  // Tareas de mantenimiento
+  if (chores.length > 0) {
+    releaseNotes += `## 🔧 Mantenimiento\n\n`;
+    chores.forEach((chore) => {
+      releaseNotes += `- ${chore}\n`;
+    });
+    releaseNotes += `\n`;
+  }
+
+  // Archivos modificados
+  if (
+    addedFiles.length > 0 ||
+    modifiedFiles.length > 0 ||
+    deletedFiles.length > 0
+  ) {
+    releaseNotes += `## 📁 Archivos Afectados\n\n`;
+
+    if (addedFiles.length > 0) {
+      releaseNotes += `### ✅ Archivos Agregados\n`;
+      addedFiles.forEach((file) => {
+        releaseNotes += `- \`${file}\`\n`;
+      });
+      releaseNotes += `\n`;
+    }
+
+    if (modifiedFiles.length > 0) {
+      releaseNotes += `### 📝 Archivos Modificados\n`;
+      modifiedFiles.forEach((file) => {
+        releaseNotes += `- \`${file}\`\n`;
+      });
+      releaseNotes += `\n`;
+    }
+
+    if (deletedFiles.length > 0) {
+      releaseNotes += `### ❌ Archivos Eliminados\n`;
+      deletedFiles.forEach((file) => {
+        releaseNotes += `- \`${file}\`\n`;
+      });
+      releaseNotes += `\n`;
+    }
+  }
+
+  // Información adicional
+  releaseNotes += `---\n\n`;
+  releaseNotes += `**Total de commits:** ${commits.length}\n`;
+  releaseNotes += `**Archivos afectados:** ${files.length}\n`;
+
+  if (pullRequest.user) {
+    releaseNotes += `**Autor:** @${pullRequest.user.login}\n`;
+  }
+
+  return releaseNotes;
+}
+
 async function run() {
   try {
     const token = core.getInput("github_token");
@@ -88,27 +219,8 @@ Por favor, genera release notes que incluyan:
 
 Formato la respuesta de manera profesional y clara.`;
 
-    // Usar GitHub Copilot Chat API
-    const copilotResponse = await octokit.request(
-      "POST /copilot/chat/completions",
-      {
-        messages: [
-          {
-            role: "system",
-            content:
-              "Eres un asistente especializado en generar release notes profesionales basándote en información de Pull Requests.",
-          },
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        model: "gpt-4o",
-        max_tokens: 1000,
-      }
-    );
-
-    const releaseNotes = copilotResponse.data.choices[0].message.content;
+    // Generar release notes automáticas sin IA
+    const releaseNotes = generateReleaseNotes(pullRequest, commits, files);
 
     // Determinar el tag a usar
     const customVersion = core.getInput("version");
