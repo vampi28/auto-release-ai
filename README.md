@@ -1,13 +1,14 @@
-# Auto Release with GitHub Copilot
+# Auto Release with Hugging Face AI
 
-GitHub Action que genera releases automáticas con descripciones inteligentes utilizando GitHub Copilot.
+GitHub Action que genera releases automáticas con descripciones inteligentes utilizando Hugging Face AI.
 
 ## Características
 
-- 🤖 Genera release notes automáticas usando GitHub Copilot
-- 📝 Analiza commits, archivos modificados y descripción del PR
-- 🏷️ Crea tags automáticos con formato temporal
-- 🔄 Se integra perfectamente con el flujo de trabajo de GitHub
+- Genera release notes automáticas usando Hugging Face AI
+- Analiza commits, archivos modificados y descripción del PR
+- Crea tags automáticos con formato temporal
+- Se integra perfectamente con el flujo de trabajo de GitHub
+- Respaldo automático sin IA si no se proporciona token
 
 ## Uso
 
@@ -31,7 +32,8 @@ jobs:
       - name: Create Release
         uses: ./
         with:
-          github_token: ${{ secrets.GH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          huggingface_token: ${{ secrets.HUGGINGFACE_TOKEN }}
 ```
 
 ### Configuración Avanzada
@@ -58,7 +60,8 @@ jobs:
         id: release
         uses: ./
         with:
-          github_token: ${{ secrets.GH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          huggingface_token: ${{ secrets.HUGGINGFACE_TOKEN }}
 
       - name: Print Release Info
         run: |
@@ -68,9 +71,12 @@ jobs:
 
 ## Inputs
 
-| Input          | Descripción                                         | Requerido | Default |
-| -------------- | --------------------------------------------------- | --------- | ------- |
-| `GH_TOKEN` | Token de GitHub con permisos de Copilot y escritura | ✅        | N/A     |
+| Input               | Descripción                                          | Requerido | Default        |
+| ------------------- | ---------------------------------------------------- | --------- | -------------- |
+| `github_token`      | Token de GitHub (usar `${{ secrets.GITHUB_TOKEN }}`) | ✅        | N/A            |
+| `huggingface_token` | Token de Hugging Face para IA (opcional)             | ❌        | N/A            |
+| `pr_number`         | Número del Pull Request (se detecta automáticamente) | ❌        | Auto-detectado |
+| `version`           | Versión personalizada para la release                | ❌        | Auto-generado  |
 
 ## Outputs
 
@@ -81,24 +87,38 @@ jobs:
 
 ## Permisos Requeridos
 
-El `GH_TOKEN` debe tener los siguientes permisos configurados en el workflow:
+El `GITHUB_TOKEN` debe tener los siguientes permisos configurados en el workflow:
 
 ### Configuración Necesaria
 
 ```yaml
 permissions:
-  repo: write
-  workflow:
-  copilot:
+  contents: write # Requerido - Para crear releases y tags
+  pull-requests: read # Requerido - Para leer información del PR
 ```
 
-### Detalle de Permisos
+### Configuración de Tokens
 
-| Permiso         | Nivel   | Para qué se usa                  | API específica                                            |
-| --------------- | ------- | -------------------------------- | --------------------------------------------------------- |
-| `contents`      | `write` | Crear releases y tags            | `repos.createRelease()`                                   |
-| `pull-requests` | `read`  | Leer PRs, commits y archivos     | `pulls.get()`, `pulls.listCommits()`, `pulls.listFiles()` |
-| `metadata`      | `read`  | Info básica del repo (implícito) | `context.repo.owner`, `context.repo.repo`                 |
+**GitHub Token**: No necesitas configurar nada especial. Usa `${{ secrets.GITHUB_TOKEN }}` que GitHub proporciona automáticamente.
+
+**Hugging Face Token** (opcional para IA):
+
+- Ve a [Hugging Face Settings](https://huggingface.co/settings/tokens)
+- Crea un token gratuito
+- Agrégalo como secret `HUGGINGFACE_TOKEN` en tu repositorio
+- Si no lo configuras, la action generará release notes automáticamente sin IA
+
+## Configuración Rápida
+
+**Para usar solo con generación automática (sin IA):**
+
+- No necesitas configurar ningún token adicional
+- Usa `${{ secrets.GITHUB_TOKEN }}` que GitHub proporciona automáticamente
+
+**Para usar con IA de Hugging Face:**
+
+- Crea un token gratuito en [Hugging Face](https://huggingface.co/settings/tokens)
+- Agrégalo como secret `HUGGINGFACE_TOKEN` en tu repositorio
 
 ## Cómo Funciona
 
@@ -109,13 +129,15 @@ permissions:
    - Archivos modificados con su estado
    - Diff del código
 
-2. **Análisis con Copilot**: Envía toda la información a GitHub Copilot para generar release notes profesionales que incluyen:
+2. **Análisis con IA**: Si se proporciona token de Hugging Face, envía la información a la API para generar release notes profesionales que incluyen:
 
    - Resumen de cambios principales
    - Nuevas características
    - Correcciones de bugs
    - Mejoras de rendimiento
    - Impacto para usuarios
+
+   Si no hay token, genera automáticamente release notes basándose en análisis de commits.
 
 3. **Creación de Release**: Genera automáticamente:
    - Tag con formato temporal (`v2025.08.04-1430`)
@@ -130,17 +152,17 @@ Ejemplo: `v2025.08.04-1430`
 ## Ejemplo de Release Notes Generadas
 
 ```markdown
-## 🚀 Nuevas Características
+## Nuevas Características
 
-- Integración con GitHub Copilot para generación automática de release notes
+- Integración con Hugging Face para generación automática de release notes
 - Análisis mejorado de commits y archivos modificados
 
-## 🐛 Correcciones
+## Correcciones
 
 - Corregido problema con la autenticación de tokens
 - Mejorada la validación de entrada de datos
 
-## 📈 Mejoras
+## Mejoras
 
 - Optimizado el proceso de generación de tags
 - Mejor formato de las release notes generadas
@@ -151,7 +173,8 @@ Ejemplo: `v2025.08.04-1430`
 ### Requisitos
 
 - Node.js 18+
-- GitHub token con acceso a Copilot
+- GitHub token (automático)
+- Hugging Face token (opcional para IA)
 
 ### Instalación
 
@@ -163,7 +186,8 @@ npm install
 
 ```bash
 # Simular el environment de GitHub Actions
-export INPUT_GH_TOKEN="your_token_here"
+export INPUT_GITHUB_TOKEN="your_github_token_here"
+export INPUT_HUGGINGFACE_TOKEN="your_huggingface_token_here"
 node index.js
 ```
 

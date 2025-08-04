@@ -132,6 +132,81 @@ function generateReleaseNotes(pullRequest, commits, files) {
   return releaseNotes;
 }
 
+// Función para generar release notes usando Hugging Face AI
+async function generateReleaseNotesWithAI(prompt, pullRequest, commits, files) {
+  const huggingfaceToken = core.getInput("huggingface_token");
+
+  if (!huggingfaceToken) {
+    console.log(
+      "Token de Hugging Face no proporcionado, usando generación automática sin IA"
+    );
+    return generateReleaseNotes(pullRequest, commits, files);
+  }
+
+  try {
+    console.log("Generando release notes con Hugging Face AI...");
+
+    const response = await fetch(
+      "https://api-inference.huggingface.co/models/microsoft/DialoGPT-large",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${huggingfaceToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          inputs: prompt,
+          parameters: {
+            max_length: 500,
+            temperature: 0.7,
+            do_sample: true,
+          },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Hugging Face API error: ${response.status} ${response.statusText}`
+      );
+    }
+
+    const result = await response.json();
+
+    if (result.error) {
+      throw new Error(`Hugging Face error: ${result.error}`);
+    }
+
+    let aiReleaseNotes =
+      result[0]?.generated_text || result.generated_text || "";
+
+    // Si la respuesta de IA está vacía o es muy corta, usar generación automática
+    if (!aiReleaseNotes || aiReleaseNotes.trim().length < 50) {
+      console.log("Respuesta de IA insuficiente, usando generación automática");
+      return generateReleaseNotes(pullRequest, commits, files);
+    }
+
+    // Limpiar y formatear la respuesta de IA
+    aiReleaseNotes = aiReleaseNotes.replace(prompt, "").trim();
+
+    // Agregar información técnica al final
+    aiReleaseNotes += `\n\n---\n\n**Información técnica:**\n`;
+    aiReleaseNotes += `- Total de commits: ${commits.length}\n`;
+    aiReleaseNotes += `- Archivos afectados: ${files.length}\n`;
+
+    if (pullRequest.user) {
+      aiReleaseNotes += `- Autor: @${pullRequest.user.login}\n`;
+    }
+
+    console.log("Release notes generadas exitosamente con IA");
+    return aiReleaseNotes;
+  } catch (error) {
+    console.error(`Error al usar Hugging Face: ${error.message}`);
+    console.log("Usando generación automática como respaldo");
+    return generateReleaseNotes(pullRequest, commits, files);
+  }
+}
+
 async function run() {
   try {
     const token = core.getInput("github_token");
@@ -184,7 +259,7 @@ async function run() {
       },
     });
 
-    // Preparar información para GitHub Copilot
+    // Preparar prompt para Hugging Face
     const commitMessages = commits
       .map((c) => `- ${c.commit.message}`)
       .join("\n");
@@ -192,35 +267,26 @@ async function run() {
       .map((f) => `- ${f.filename} (${f.status})`)
       .join("\n");
 
-    const prompt = `Basándote en la siguiente información de un Pull Request, genera release notes profesionales en español:
+    const prompt = `Genera release notes profesionales en español para este Pull Request:
 
-TÍTULO DEL PR: ${pullRequest.title}
-DESCRIPCIÓN DEL PR: ${pullRequest.body || "Sin descripción"}
+Título: ${pullRequest.title}
+Descripción: ${pullRequest.body || "Sin descripción"}
 
-COMMITS:
+Commits:
 ${commitMessages}
 
-ARCHIVOS MODIFICADOS:
+Archivos modificados:
 ${filesList}
 
-DIFF DE CAMBIOS:
-${
-  diff.length > 3000
-    ? diff.substring(0, 3000) + "\n...[diff truncado]..."
-    : diff
-}
+Incluye: resumen de cambios, nuevas características, correcciones y mejoras.`;
 
-Por favor, genera release notes que incluyan:
-1. Un resumen de los cambios principales
-2. Nuevas características agregadas
-3. Correcciones de bugs
-4. Mejoras de rendimiento (si aplica)
-5. Cambios que podrían afectar a los usuarios
-
-Formato la respuesta de manera profesional y clara.`;
-
-    // Generar release notes automáticas sin IA
-    const releaseNotes = generateReleaseNotes(pullRequest, commits, files);
+    // Usar Hugging Face para generar release notes con IA
+    const releaseNotes = await generateReleaseNotesWithAI(
+      prompt,
+      pullRequest,
+      commits,
+      files
+    );
 
     // Determinar el tag a usar
     const customVersion = core.getInput("version");

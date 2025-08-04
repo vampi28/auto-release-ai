@@ -27,7 +27,6 @@ on:
 
 jobs:
   auto-release:
-    # Se ejecuta si es un PR cerrado y mergeado, o si es ejecución manual
     if: (github.event_name == 'pull_request' && github.event.pull_request.merged == true) || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
@@ -67,7 +66,8 @@ jobs:
         id: auto_release
         uses: ./
         with:
-          github_token: ${{ secrets.GH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          huggingface_token: ${{ secrets.HUGGINGFACE_TOKEN }}
           pr_number: ${{ steps.pr_setup.outputs.pr_number }}
           version: ${{ github.event.inputs.version || '' }}
 
