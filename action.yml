@@ -1,12 +1,15 @@
-name: 'Auto Release with AI Description'
-description: 'Genera una release con descripción automática basada en los cambios del PR'
+name: "Auto Release with AI Description"
+description: "Genera una release con descripción automática basada en los cambios del PR usando GitHub Copilot"
 inputs:
   github_token:
     required: true
-    description: 'GitHub token'
-  openai_api_key:
-    required: true
-    description: 'API Key de OpenAI'
+    description: "GitHub token with Copilot access"
+  pr_number:
+    required: false
+    description: "Pull Request number (opcional, se detecta automáticamente si no se proporciona)"
+  version:
+    required: false
+    description: "Versión personalizada para la release (opcional, se genera automáticamente si no se proporciona)"
 runs:
-  using: 'node12'
-  main: 'index.js'
+  using: "node20"
+  main: "index.js"

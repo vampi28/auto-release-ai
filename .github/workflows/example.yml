@@ -1,0 +1,89 @@
+name: Auto Release
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Número del Pull Request para generar la release"
+        required: true
+        type: string
+      version:
+        description: "Versión de la release (ej: v1.2.3, 2.0.0)"
+        required: false
+        type: string
+        default: ""
+      release_type:
+        description: "Tipo de release"
+        required: false
+        default: "standard"
+        type: choice
+        options:
+          - standard
+          - hotfix
+          - major
+
+jobs:
+  auto-release:
+    # Se ejecuta si es un PR cerrado y mergeado, o si es ejecución manual
+    if: (github.event_name == 'pull_request' && github.event.pull_request.merged == true) || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set PR Number
+        id: pr_setup
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "pr_number=${{ github.event.inputs.pr_number }}" >> $GITHUB_OUTPUT
+            echo "is_manual=true" >> $GITHUB_OUTPUT
+          else
+            echo "pr_number=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+            echo "is_manual=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Display Execution Info
+        run: |
+          echo "🚀 Ejecutando Auto Release"
+          echo "📝 Modo: ${{ steps.pr_setup.outputs.is_manual == 'true' && 'Manual' || 'Automático' }}"
+          echo "🔢 PR Number: ${{ steps.pr_setup.outputs.pr_number }}"
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "📦 Tipo de Release: ${{ github.event.inputs.release_type }}"
+            if [ -n "${{ github.event.inputs.version }}" ]; then
+              echo "🏷️ Versión: ${{ github.event.inputs.version }}"
+            else
+              echo "🏷️ Versión: Se generará automáticamente"
+            fi
+          fi
+
+      - name: Create Automatic Release
+        id: auto_release
+        uses: ./
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          pr_number: ${{ steps.pr_setup.outputs.pr_number }}
+          version: ${{ github.event.inputs.version || '' }}
+
+      - name: Display Release Information
+        run: |
+          echo "🎉 Release created successfully!"
+          echo "📋 Release URL: ${{ steps.auto_release.outputs.release_url }}"
+          echo "🏷️ Tag Name: ${{ steps.auto_release.outputs.tag_name }}"
+
+      - name: Notify Success
+        if: success()
+        run: |
+          echo "✅ Auto-release workflow completed successfully"
+
+      - name: Handle Failure
+        if: failure()
+        run: |
+          echo "❌ Auto-release workflow failed"
+          echo "Please check the logs for more information"
