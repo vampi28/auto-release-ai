@@ -1,0 +1,12 @@
+name: 'Auto Release with AI Description'
+description: 'Genera una release con descripción automática basada en los cambios del PR'
+inputs:
+  github_token:
+    required: true
+    description: 'GitHub token'
+  openai_api_key:
+    required: true
+    description: 'API Key de OpenAI'
+runs:
+  using: 'node12'
+  main: 'index.js'
