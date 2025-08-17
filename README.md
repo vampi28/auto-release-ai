@@ -41,13 +41,13 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Create Release
-        uses: ./
+      - name: Create GitHub Release
+        uses: vampi28/auto-release-ai@v1.0.0
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          huggingface_token: ${{ secrets.HUGGINGFACE_TOKEN }}
-          pr_number: ${{ github.event.inputs.pr_number }}
-          version: ${{ github.event.inputs.version }}
+          github_token: ${{ secrets.GH_TOKEN }}
+          pr_number: ${{ steps.pr_info.outputs.pr_number }}
+          version: ${{ needs.build.outputs.version }}
+
 ```
 
 ### Cómo Ejecutar
@@ -63,7 +63,7 @@ jobs:
 
 | Input               | Descripción                                          | Requerido | Default |
 | ------------------- | ---------------------------------------------------- | --------- | ------- |
-| `github_token`      | Token de GitHub (usar `${{ secrets.GITHUB_TOKEN }}`) | ✅        | N/A     |
+| `github_token`      | Token de GitHub (usar `${{ secrets.GH_TOKEN }}`) | ✅        | N/A     |
 | `huggingface_token` | Token de Hugging Face para IA (opcional)             | ❌        | N/A     |
 | `pr_number`         | Número del Pull Request                              | ✅        | N/A     |
 | `version`           | Versión de la release (ej: v1.2.3, 2.0.0)            | ✅        | N/A     |
@@ -89,7 +89,7 @@ permissions:
 
 ### Configuración de Tokens
 
-**GitHub Token**: No necesitas configurar nada especial. Usa `${{ secrets.GITHUB_TOKEN }}` que GitHub proporciona automáticamente.
+**GitHub Token**: No necesitas configurar nada especial. Usa `${{ secrets.GH_TOKEN }}` que GitHub proporciona automáticamente.
 
 **Hugging Face Token** (opcional para IA):
 
@@ -103,7 +103,7 @@ permissions:
 **Para usar solo con generación automática (sin IA):**
 
 - No necesitas configurar ningún token adicional
-- Usa `${{ secrets.GITHUB_TOKEN }}` que GitHub proporciona automáticamente
+- Usa `${{ secrets.GH_TOKEN }}` que GitHub proporciona automáticamente
 
 **Para usar con IA de Hugging Face:**
 
@@ -170,7 +170,7 @@ npm install
 
 ```bash
 # Simular el environment de GitHub Actions
-export INPUT_GITHUB_TOKEN="your_github_token_here"
+export INPUT_GH_TOKEN="your_github_token_here"
 export INPUT_HUGGINGFACE_TOKEN="your_huggingface_token_here"
 node index.js
 ```
